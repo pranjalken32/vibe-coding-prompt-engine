@@ -1,51 +1,49 @@
-import { useState, useEffect } from 'react';
-import { api } from '../utils/api';
+import { useState, useEffect, useContext } from 'react';
+import { getDashboardStats } from '../utils/api';
+import { AuthContext } from '../context/AuthContext';
+
+const StatCard = ({ label, value }) => (
+    <div className="bg-white shadow rounded-lg p-6">
+        <div className="text-3xl font-bold">{value}</div>
+        <div className="text-gray-500">{label}</div>
+    </div>
+);
 
 export default function Dashboard() {
+  const { user } = useContext(AuthContext);
   const [stats, setStats] = useState(null);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getDashboard()
-      .then(res => setStats(res.data))
-      .catch(err => setError(err.message));
-  }, []);
+    if (user?.orgId) {
+      getDashboardStats(user.orgId)
+        .then(res => {
+            if (res.data.success) {
+                setStats(res.data.data);
+            } else {
+                setError(res.data.error);
+            }
+        })
+        .catch(err => setError(err.message || 'Failed to fetch dashboard stats.'))
+        .finally(() => setLoading(false));
+    }
+  }, [user]);
 
-  if (error) return <div className="error-msg">{error}</div>;
-  if (!stats) return <div>Loading dashboard...</div>;
+  if (loading) return <div>Loading dashboard...</div>;
+  if (error) return <div className="bg-red-100 text-red-700 p-3 rounded-md">{error}</div>;
+  if (!stats) return <div>No stats available.</div>;
 
   return (
-    <div>
-      <div className="page-header">
-        <h1>Dashboard</h1>
+    <div className="container mx-auto p-4">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Dashboard</h1>
       </div>
-      <div className="grid-4">
-        <div className="stat-card">
-          <div className="number">{stats.totalTasks}</div>
-          <div className="label">Total Tasks</div>
-        </div>
-        <div className="stat-card">
-          <div className="number">{stats.openTasks}</div>
-          <div className="label">Open</div>
-        </div>
-        <div className="stat-card">
-          <div className="number">{stats.inProgressTasks}</div>
-          <div className="label">In Progress</div>
-        </div>
-        <div className="stat-card">
-          <div className="number">{stats.doneTasks}</div>
-          <div className="label">Done</div>
-        </div>
-      </div>
-      <div className="grid-2" style={{ marginTop: '20px' }}>
-        <div className="stat-card">
-          <div className="number">{stats.overdueTasks}</div>
-          <div className="label">Overdue</div>
-        </div>
-        <div className="stat-card">
-          <div className="number">{stats.completionRate}%</div>
-          <div className="label">Completion Rate</div>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="Total Tasks" value={stats.total} />
+        <StatCard label="Open" value={stats.byStatus.open || 0} />
+        <StatCard label="In Progress" value={stats.byStatus.in_progress || 0} />
+        <StatCard label="Done" value={stats.byStatus.done || 0} />
       </div>
     </div>
   );

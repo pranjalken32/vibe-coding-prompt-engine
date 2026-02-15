@@ -1,7 +1,7 @@
 # Genesis Prompt G1 — Enterprise Task Management Platform (ETMP)
 
-**Version:** G5 (Dev E — Comments & Activity Timeline)
-**Last Updated By:** Dev E (Lovable)
+**Version:** G6 (Dev F — Task Templates & Recurring Tasks)
+**Last Updated By:** Dev F (Replit)
 **Date:** 2026-02-15
 
 ---
@@ -222,13 +222,21 @@ frontend/
 - Added a Task Detail page with task info at the top and an Activity timeline below.
 - Activity timeline shows chronological events including status changes, assignee changes, and comments, with actor and timestamp.
 
+### Task Templates & Recurring Tasks (Dev F)
+- Admins can create, update, and delete reusable task templates with pre-filled fields.
+- Any user can create a new task from a template.
+- Users can set tasks to recur daily, weekly, or monthly.
+- A scheduled job runs daily to create new instances of recurring tasks.
+- Added a "Templates" page to manage task templates.
+
 ### Data Models
 - **Organization:** name, slug, plan, settings
 - **User:** orgId, name, email, passwordHash, role, notificationPrefs, lastLoginAt
-- **Task:** orgId, title, description, status (open/in_progress/review/done), priority (low/medium/high/critical), assigneeId, createdBy, tags, dueDate, completedAt
+- **Task:** orgId, title, description, status (open/in_progress/review/done), priority (low/medium/high/critical), assigneeId, createdBy, tags, dueDate, completedAt, isRecurring, recurrence, nextRecurrence
 - **AuditLog:** orgId, userId, action, resource, resourceId, changes, ipAddress
 - **Notification:** orgId, recipientId, type (task_assigned/task_status_changed), title, message, taskId, triggeredBy, read, readAt — Added by Dev B
 - **TaskComment:** orgId, taskId, userId, body, timestamps — Added by Dev E
+- **TaskTemplate:** orgId, name, title, description, priority, assigneeId, createdBy, timestamps — Added by Dev F
 
 ---
 
@@ -241,3 +249,4 @@ frontend/
 | G3 | Dev C (GitHub Copilot) | Strengthened password hashing (12 rounds) and added color-coded priority badges with capitalized labels | 2026-02-15 |
 | G4 | Dev D (Windsurf) | Added reports module with charts (task distribution, completion over time, team workload) and search/filtering on tasks page (search bar + status/priority/assignee filters) | 2026-02-15 |
 | G5 | Dev E (GitHub Copilot) | Added task comments and unified activity timeline; introduced Task Detail page | 2026-02-15 |
+| G6 | Dev F (Replit) | Added task templates and recurring tasks | 2026-02-15 |

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import NotificationBell from './NotificationBell';
 
@@ -13,12 +13,12 @@ export default function Header() {
         <Link to="/" className="nav-brand">ETMP</Link>
         <div className="nav-links">
           <Link to="/">Dashboard</Link>
-          <Link to="/tasks">Tasks</Link>
-          <Link to="/reports">Reports</Link>
+          <NavLink to="/tasks" className={({ isActive }) => linkClass(isActive)}>Tasks</NavLink>
+          <NavLink to="/reports" className={({ isActive }) => linkClass(isActive)}>Reports</NavLink>
           {(user.role === 'admin' || user.role === 'manager') && (
-            <Link to="/audit-logs">Audit Logs</Link>
+            <NavLink to="/audit-logs" className={({ isActive }) => linkClass(isActive)}>Audit Logs</NavLink>
           )}
-          <Link to="/notification-preferences">Preferences</Link>
+          <NavLink to="/templates" className={({ isActive }) => linkClass(isActive)}>Templates</NavLink>
           <NotificationBell />
           <span style={{ color: '#6b7280', fontSize: '14px' }}>
             {user.name} ({user.role})
@@ -30,4 +30,8 @@ export default function Header() {
       </div>
     </nav>
   );
+}
+
+function linkClass(isActive) {
+  return isActive ? 'text-blue-600 font-bold' : 'text-gray-600';
 }

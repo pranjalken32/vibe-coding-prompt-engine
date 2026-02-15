@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { api } from '../utils/api';
+import { getTasks, createTask, updateTask, deleteTask, getUsers, getTaskTemplates, createTaskFromTemplate } from '../utils/api';
 import TaskCard from '../components/TaskCard';
 import TaskForm from '../components/TaskForm';
 
@@ -8,10 +8,14 @@ export default function Tasks() {
   const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [users, setUsers] = useState([]);
+  const [templates, setTemplates] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [error, setError] = useState('');
   
+  const orgId = user?.orgId;
+
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -22,12 +26,8 @@ export default function Tasks() {
   const canDelete = user?.role === 'admin';
   const canCreate = ['admin', 'manager', 'member'].includes(user?.role);
 
-  useEffect(() => {
-    loadTasks();
-    api.getUsers().then(res => setUsers(res.data)).catch(() => {});
-  }, [searchQuery, statusFilter, priorityFilter, assigneeFilter]);
-
-  async function loadTasks() {
+  const loadTasks = async () => {
+    if (!orgId) return;
     try {
       const params = new URLSearchParams();
       if (searchQuery) params.append('search', searchQuery);
@@ -35,36 +35,51 @@ export default function Tasks() {
       if (priorityFilter) params.append('priority', priorityFilter);
       if (assigneeFilter) params.append('assigneeId', assigneeFilter);
       
-      const queryString = params.toString() ? `?${params.toString()}` : '';
-      const res = await api.getTasks(queryString);
-      setTasks(res.data);
+      const res = await getTasks(orgId, params);
+      if (res.data.success) {
+        setTasks(res.data.data);
+      } else {
+        setError(res.data.error);
+      }
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Failed to load tasks.');
     }
   }
+
+  useEffect(() => {
+    loadTasks();
+    if (orgId) {
+        getUsers(orgId).then(res => {
+            if (res.data.success) setUsers(res.data.data);
+        }).catch(() => {});
+        getTaskTemplates(orgId).then(res => {
+            if (res.data.success) setTemplates(res.data.data);
+        }).catch(() => {});
+    }
+  }, [orgId, searchQuery, statusFilter, priorityFilter, assigneeFilter]);
 
   async function handleSubmit(formData) {
     try {
       if (editingTask) {
-        await api.updateTask(editingTask._id, formData);
+        await updateTask(orgId, editingTask._id, formData);
       } else {
-        await api.createTask(formData);
+        await createTask(orgId, formData);
       }
       setShowForm(false);
       setEditingTask(null);
       loadTasks();
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.error || err.message);
     }
   }
 
   async function handleDelete(id) {
     if (!confirm('Delete this task?')) return;
     try {
-      await api.deleteTask(id);
+      await deleteTask(orgId, id);
       loadTasks();
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.error || err.message);
     }
   }
 
@@ -73,47 +88,49 @@ export default function Tasks() {
     setShowForm(true);
   }
 
+  async function handleCreateFromTemplate(templateId) {
+    try {
+        await createTaskFromTemplate(orgId, templateId);
+        setShowTemplateModal(false);
+        loadTasks();
+    } catch (err) {
+        setError(err.response?.data?.error || 'Failed to create task from template.');
+    }
+  }
+
   return (
-    <div>
-      <div className="page-header">
-        <h1>Tasks</h1>
-        {canCreate && !showForm && (
-          <button className="btn btn-primary" onClick={() => { setEditingTask(null); setShowForm(true); }}>
-            New Task
-          </button>
-        )}
+    <div className="container mx-auto p-4">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Tasks</h1>
+        <div className="flex gap-2">
+            {canCreate && !showForm && (
+            <>
+                <button className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700" onClick={() => { setEditingTask(null); setShowForm(true); }}>
+                    New Task
+                </button>
+                <button className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700" onClick={() => setShowTemplateModal(true)}>
+                    Create from Template
+                </button>
+            </>
+            )}
+        </div>
       </div>
-      {error && <div className="error-msg">{error}</div>}
+      {error && <div className="bg-red-100 text-red-700 p-3 rounded-md mb-4">{error}</div>}
       
       {/* Search and Filters */}
-      <div style={{ marginBottom: '24px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+      <div className="mb-6 flex gap-4 flex-wrap items-center">
         <input
           type="text"
-          placeholder="Search tasks by title or description..."
+          placeholder="Search tasks..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          style={{
-            flex: '1 1 300px',
-            padding: '8px 12px',
-            background: '#1f2937',
-            border: '1px solid #374151',
-            borderRadius: '6px',
-            color: '#f3f4f6',
-            fontSize: '14px',
-          }}
+          className="flex-grow p-2 border rounded-md"
         />
         
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          style={{
-            padding: '8px 12px',
-            background: '#1f2937',
-            border: '1px solid #374151',
-            borderRadius: '6px',
-            color: '#f3f4f6',
-            fontSize: '14px',
-          }}
+          className="p-2 border rounded-md"
         >
           <option value="">All Status</option>
           <option value="open">Open</option>
@@ -125,14 +142,7 @@ export default function Tasks() {
         <select
           value={priorityFilter}
           onChange={(e) => setPriorityFilter(e.target.value)}
-          style={{
-            padding: '8px 12px',
-            background: '#1f2937',
-            border: '1px solid #374151',
-            borderRadius: '6px',
-            color: '#f3f4f6',
-            fontSize: '14px',
-          }}
+          className="p-2 border rounded-md"
         >
           <option value="">All Priority</option>
           <option value="low">Low</option>
@@ -144,14 +154,7 @@ export default function Tasks() {
         <select
           value={assigneeFilter}
           onChange={(e) => setAssigneeFilter(e.target.value)}
-          style={{
-            padding: '8px 12px',
-            background: '#1f2937',
-            border: '1px solid #374151',
-            borderRadius: '6px',
-            color: '#f3f4f6',
-            fontSize: '14px',
-          }}
+          className="p-2 border rounded-md"
         >
           <option value="">All Assignees</option>
           {users.map(u => (
@@ -167,15 +170,7 @@ export default function Tasks() {
               setPriorityFilter('');
               setAssigneeFilter('');
             }}
-            style={{
-              padding: '8px 16px',
-              background: '#374151',
-              border: 'none',
-              borderRadius: '6px',
-              color: '#9ca3af',
-              fontSize: '14px',
-              cursor: 'pointer',
-            }}
+            className="p-2 bg-gray-200 rounded-md"
           >
             Clear Filters
           </button>
@@ -190,20 +185,43 @@ export default function Tasks() {
           onCancel={() => { setShowForm(false); setEditingTask(null); }}
         />
       )}
-      {tasks.length === 0 ? (
-        <p style={{ color: '#9ca3af' }}>No tasks found.</p>
-      ) : (
-        tasks.map(task => (
-          <TaskCard
-            key={task._id}
-            task={task}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            canEdit={canEdit}
-            canDelete={canDelete}
-          />
-        ))
+
+      {showTemplateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+                <h2 className="text-xl font-bold mb-4">Create Task from Template</h2>
+                <ul className="divide-y divide-gray-200">
+                    {templates.map(template => (
+                        <li key={template._id} className="py-3 flex justify-between items-center">
+                            <span>{template.name}</span>
+                            <button
+                                onClick={() => handleCreateFromTemplate(template._id)}
+                                className="bg-indigo-600 text-white px-3 py-1 rounded-md text-sm hover:bg-indigo-700"
+                            >
+                                Create
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+                <button onClick={() => setShowTemplateModal(false)} className="mt-4 text-sm text-gray-600">Cancel</button>
+            </div>
+        </div>
       )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {tasks.length === 0 ? (
+            <p className="text-gray-500">No tasks found.</p>
+        ) : (
+            tasks.map(task => (
+            <TaskCard
+                key={task._id}
+                task={task}
+                onEdit={canEdit ? handleEdit : undefined}
+                onDelete={canDelete ? handleDelete : undefined}
+            />
+            ))
+        )}
+      </div>
     </div>
   );
 }

@@ -277,13 +277,13 @@ router.get('/:id', checkPermission('read', 'tasks'), async (req, res) => {
 router.post('/', checkPermission('create', 'tasks'), async (req, res) => {
   try {
     const { orgId, id: userId } = req.user;
-    const { title, description, status, priority, assigneeId, tags, dueDate } = req.body;
+    const { title, description, status, priority, assigneeId, tags, dueDate, isRecurring, recurrence } = req.body;
 
     if (!title) {
       return res.status(400).json({ success: false, data: null, error: 'Title is required' });
     }
 
-    const task = await Task.create({
+    const taskData = {
       orgId,
       title,
       description,
@@ -293,19 +293,36 @@ router.post('/', checkPermission('create', 'tasks'), async (req, res) => {
       createdBy: userId,
       tags,
       dueDate,
-    });
+      isRecurring,
+      recurrence,
+    };
+
+    if (isRecurring && recurrence) {
+        const nextDate = new Date();
+        nextDate.setHours(0, 0, 0, 0);
+        if (recurrence === 'daily') {
+            nextDate.setDate(nextDate.getDate() + 1);
+        } else if (recurrence === 'weekly') {
+            nextDate.setDate(nextDate.getDate() + 7);
+        } else if (recurrence === 'monthly') {
+            nextDate.setMonth(nextDate.getMonth() + 1);
+        }
+        taskData.nextRecurrence = nextDate;
+    }
+
+    const task = await Task.create(taskData);
 
     await logAudit({
       orgId,
       userId,
-      action: 'create',
+      action: 'created',
       resource: 'task',
       resourceId: task._id,
-      changes: { title, status: task.status, priority: task.priority },
+      changes: { title, status, priority, isRecurring, recurrence },
       ipAddress: req.ip,
     });
 
-    if (assigneeId) {
+    if (assigneeId && String(assigneeId) !== String(userId)) {
       await createNotification({
         orgId,
         recipientId: assigneeId,
@@ -326,29 +343,80 @@ router.post('/', checkPermission('create', 'tasks'), async (req, res) => {
 router.put('/:id', checkPermission('update', 'tasks'), async (req, res) => {
   try {
     const { orgId, id: userId } = req.user;
-    const updates = req.body;
+    const taskId = req.params.id;
+    const { title, description, status, priority, assigneeId, tags, dueDate, isRecurring, recurrence } = req.body;
 
-    const task = await Task.findOne({ _id: req.params.id, orgId });
+    const task = await Task.findOne({ _id: taskId, orgId });
+
     if (!task) {
       return res.status(404).json({ success: false, data: null, error: 'Task not found' });
     }
 
-    const oldValues = { status: task.status, priority: task.priority, title: task.title, assigneeId: task.assigneeId };
+    const beforeChanges = {
+      title: task.title,
+      description: task.description,
+      status: task.status,
+      priority: task.priority,
+      assigneeId: task.assigneeId,
+      tags: task.tags,
+      dueDate: task.dueDate,
+      isRecurring: task.isRecurring,
+      recurrence: task.recurrence,
+    };
+    const oldAssigneeId = task.assigneeId;
 
-    if (updates.status === 'done' && task.status !== 'done') {
-      updates.completedAt = new Date();
+    task.title = title;
+    task.description = description;
+    task.status = status;
+    task.priority = priority;
+    task.assigneeId = assigneeId;
+    task.tags = tags;
+    task.dueDate = dueDate;
+    task.isRecurring = isRecurring;
+    task.recurrence = recurrence;
+
+    if (isRecurring && recurrence && (!task.nextRecurrence || beforeChanges.recurrence !== recurrence)) {
+        const nextDate = new Date();
+        nextDate.setHours(0, 0, 0, 0);
+        if (recurrence === 'daily') {
+            nextDate.setDate(nextDate.getDate() + 1);
+        } else if (recurrence === 'weekly') {
+            nextDate.setDate(nextDate.getDate() + 7);
+        } else if (recurrence === 'monthly') {
+            nextDate.setMonth(nextDate.getMonth() + 1);
+        }
+        task.nextRecurrence = nextDate;
+    } else if (!isRecurring) {
+        task.nextRecurrence = null;
+    }
+
+
+    if (status === 'done' && !task.completedAt) {
+      task.completedAt = new Date();
     }
 
     Object.assign(task, updates);
     await task.save();
+
+    const afterChanges = {
+      title,
+      description,
+      status,
+      priority,
+      assigneeId,
+      tags,
+      dueDate,
+      isRecurring,
+      recurrence,
+    };
 
     await logAudit({
       orgId,
       userId,
       action: 'update',
       resource: 'task',
-      resourceId: task._id,
-      changes: { before: oldValues, after: updates },
+      resourceId: taskId,
+      changes: { before: beforeChanges, after: afterChanges },
       ipAddress: req.ip,
     });
 

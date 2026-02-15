@@ -25,6 +25,13 @@ const ROLE_PERMISSIONS = {
   },
 };
 
+// Add task_template permissions for all roles that have task permissions
+for (const role in ROLE_PERMISSIONS) {
+    if (ROLE_PERMISSIONS[role].tasks) {
+        ROLE_PERMISSIONS[role].task_template = ROLE_PERMISSIONS[role].tasks;
+    }
+}
+
 function getPermissions(role) {
   return ROLE_PERMISSIONS[role] || {};
 }

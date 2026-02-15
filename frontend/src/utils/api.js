@@ -1,55 +1,60 @@
-const API_BASE = '/api/v1';
+import axios from 'axios';
 
-function getHeaders() {
+const api = axios.create({
+  baseURL: '/api/v1',
+});
+
+api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-}
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
-function getOrgId() {
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  return user.orgId || '';
-}
+// Auth
+export const login = (credentials) => api.post('/auth/login', credentials);
+export const register = (userData) => api.post('/auth/register', userData);
 
-async function request(method, path, body) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers: getHeaders(),
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Request failed');
-  return data;
-}
+// Tasks
+export const getTasks = (orgId, params) => api.get(`/orgs/${orgId}/tasks`, { params });
+export const getTask = (orgId, taskId) => api.get(`/orgs/${orgId}/tasks/${taskId}`);
+export const createTask = (orgId, data) => api.post(`/orgs/${orgId}/tasks`, data);
+export const updateTask = (orgId, taskId, data) => api.put(`/orgs/${orgId}/tasks/${taskId}`, data);
+export const deleteTask = (orgId, taskId) => api.delete(`/orgs/${orgId}/tasks/${taskId}`);
 
-export const api = {
-  login: (body) => request('POST', '/auth/login', body),
-  register: (body) => request('POST', '/auth/register', body),
+// Task Activity & Comments
+export const getTaskActivity = (orgId, taskId) => api.get(`/orgs/${orgId}/tasks/${taskId}/activity`);
+export const addTaskComment = (orgId, taskId, body) => api.post(`/orgs/${orgId}/tasks/${taskId}/comments`, { body });
 
-  getTasks: (query = '') => request('GET', `/orgs/${getOrgId()}/tasks${query}`),
-  getTask: (id) => request('GET', `/orgs/${getOrgId()}/tasks/${id}`),
-  getTaskActivity: (id) => request('GET', `/orgs/${getOrgId()}/tasks/${id}/activity`),
-  getTaskComments: (id) => request('GET', `/orgs/${getOrgId()}/tasks/${id}/comments`),
-  addTaskComment: (id, body) => request('POST', `/orgs/${getOrgId()}/tasks/${id}/comments`, body),
-  createTask: (body) => request('POST', `/orgs/${getOrgId()}/tasks`, body),
-  updateTask: (id, body) => request('PUT', `/orgs/${getOrgId()}/tasks/${id}`, body),
-  deleteTask: (id) => request('DELETE', `/orgs/${getOrgId()}/tasks/${id}`),
+// Users
+export const getUsers = (orgId) => api.get(`/orgs/${orgId}/users`);
+export const updateUserRole = (orgId, userId, role) => api.put(`/orgs/${orgId}/users/${userId}/role`, { role });
 
-  getDashboard: () => request('GET', `/orgs/${getOrgId()}/dashboard/stats`),
-  getAuditLogs: (query = '') => request('GET', `/orgs/${getOrgId()}/audit-logs${query}`),
-  getUsers: () => request('GET', `/orgs/${getOrgId()}/users`),
-  updateUserRole: (id, role) => request('PUT', `/orgs/${getOrgId()}/users/${id}/role`, { role }),
+// Dashboard
+export const getDashboardStats = (orgId) => api.get(`/orgs/${orgId}/dashboard`);
 
-  getNotifications: (query = '') => request('GET', `/orgs/${getOrgId()}/notifications${query}`),
-  getNotificationUnreadCount: () => request('GET', `/orgs/${getOrgId()}/notifications/unread-count`),
-  markNotificationRead: (id) => request('PUT', `/orgs/${getOrgId()}/notifications/${id}/read`),
-  markAllNotificationsRead: () => request('PUT', `/orgs/${getOrgId()}/notifications/mark-all-read`),
-  getNotificationPreferences: () => request('GET', `/orgs/${getOrgId()}/notifications/preferences`),
-  updateNotificationPreferences: (body) => request('PUT', `/orgs/${getOrgId()}/notifications/preferences`, body),
+// Audit Logs
+export const getAuditLogs = (orgId, params) => api.get(`/orgs/${orgId}/audit-logs`, { params });
 
-  getTaskDistribution: () => request('GET', `/orgs/${getOrgId()}/reports/task-distribution`),
-  getTasksOverTime: (days = 30) => request('GET', `/orgs/${getOrgId()}/reports/tasks-over-time?days=${days}`),
-  getTeamWorkload: () => request('GET', `/orgs/${getOrgId()}/reports/team-workload`),
-};
+// Notifications
+export const getNotifications = (orgId, params) => api.get(`/orgs/${orgId}/notifications`, { params });
+export const getUnreadNotificationCount = (orgId) => api.get(`/orgs/${orgId}/notifications/unread-count`);
+export const markNotificationAsRead = (orgI, notificationId) => api.put(`/orgs/${orgId}/notifications/${notificationId}/read`);
+export const markAllNotificationsAsRead = (orgId) => api.put(`/orgs/${orgId}/notifications/mark-all-read`);
+export const getNotificationPreferences = (orgId) => api.get(`/orgs/${orgId}/notifications/preferences`);
+export const updateNotificationPreferences = (orgId, prefs) => api.put(`/orgs/${orgId}/notifications/preferences`, prefs);
+
+// Reports
+export const getReportTaskDistribution = (orgId) => api.get(`/orgs/${orgId}/reports/task-distribution`);
+export const getReportTasksOverTime = (orgId) => api.get(`/orgs/${orgId}/reports/tasks-completed-over-time`);
+export const getReportTeamWorkload = (orgId) => api.get(`/orgs/${orgId}/reports/team-workload`);
+
+// Task Templates
+export const getTaskTemplates = (orgId) => api.get(`/orgs/${orgId}/task-templates`);
+export const createTaskTemplate = (orgId, data) => api.post(`/orgs/${orgId}/task-templates`, data);
+export const updateTaskTemplate = (orgId, templateId, data) => api.put(`/orgs/${orgId}/task-templates/${templateId}`, data);
+export const deleteTaskTemplate = (orgId, templateId) => api.delete(`/orgs/${orgId}/task-templates/${templateId}`);
+export const createTaskFromTemplate = (orgId, templateId) => api.post(`/orgs/${orgId}/task-templates/${templateId}/create-task`);
+
+export default api;
