@@ -1,7 +1,7 @@
 # Genesis Prompt G1 — Enterprise Task Management Platform (ETMP)
 
-**Version:** G1 (Dev A — Genesis)
-**Last Updated By:** Dev A (Devin)
+**Version:** G2 (Dev B — Notifications)
+**Last Updated By:** Dev B (Devin)
 **Date:** 2026-02-15
 
 ---
@@ -38,11 +38,11 @@ const item = await Model.findById(req.params.id);
 
 Three roles exist: `admin`, `manager`, `member`. The permission matrix is in `backend/utils/permissions.js`:
 
-| Role | Tasks | Users | Audit Logs | Dashboard | Organization |
-|------|-------|-------|-----------|-----------|-------------|
-| admin | create, read, update, delete, assign | create, read, update, delete, changeRole | read | read | read, update |
-| manager | create, read, update, assign | read | read | read | — |
-| member | create, read, update | read | — | read | — |
+| Role | Tasks | Users | Audit Logs | Dashboard | Organization | Notifications |
+|------|-------|-------|-----------|-----------|-------------|---------------|
+| admin | create, read, update, delete, assign | create, read, update, delete, changeRole | read | read | read, update | read, update |
+| manager | create, read, update, assign | read | read | read | — | read, update |
+| member | create, read, update | read | — | read | — | read, update |
 
 Every protected route MUST use:
 1. `authMiddleware` — verifies JWT token, attaches `req.user` (from `backend/middleware/auth.js`)
@@ -167,18 +167,37 @@ frontend/
 - GET `/api/v1/orgs/:orgId/users` — List org users
 - PUT `/api/v1/orgs/:orgId/users/:id/role` — Change user role (admin only, audit logged)
 
+### Notifications (backend/routes/notifications.js) — Added by Dev B
+- GET `/api/v1/orgs/:orgId/notifications` — List notifications for current user (paginated, supports `?unreadOnly=true`)
+- GET `/api/v1/orgs/:orgId/notifications/unread-count` — Get unread notification count
+- PUT `/api/v1/orgs/:orgId/notifications/:id/read` — Mark single notification as read (audit logged)
+- PUT `/api/v1/orgs/:orgId/notifications/mark-all-read` — Mark all notifications as read (audit logged)
+- GET `/api/v1/orgs/:orgId/notifications/preferences` — Get user's notification preferences
+- PUT `/api/v1/orgs/:orgId/notifications/preferences` — Update notification preferences (audit logged)
+
+**Notification triggers (in backend/routes/tasks.js):**
+- When a task is created with an assignee, a `task_assigned` notification is sent to the assignee
+- When a task's assignee is changed, a `task_assigned` notification is sent to the new assignee
+- When a task's status changes, a `task_status_changed` notification is sent to the task creator
+- Notifications are NOT sent when the triggering user is the same as the recipient (no self-notifications)
+
 ### Frontend Pages
-- Login, Register, Dashboard, Tasks (with TaskCard + TaskForm), AuditLogs
-- Header with navigation links
+- Login, Register, Dashboard, Tasks (with TaskCard + TaskForm), AuditLogs, NotificationPreferences
+- Header with navigation links and NotificationBell component
 - ProtectedRoute component for auth guards
 - AuthContext for state management
 - api.js utility with auth headers and base URL
+
+### Frontend Components — Added by Dev B
+- **NotificationBell** (`frontend/src/components/NotificationBell.jsx`) — Bell icon in header with unread count badge, dropdown showing recent notifications, mark as read / mark all read. Polls unread count every 30 seconds. Closes on outside click.
+- **NotificationPreferences** (`frontend/src/pages/NotificationPreferences.jsx`) — Toggle page for email and in-app notification preferences with toggle switches. Saves immediately on toggle.
 
 ### Data Models
 - **Organization:** name, slug, plan, settings
 - **User:** orgId, name, email, passwordHash, role, notificationPrefs, lastLoginAt
 - **Task:** orgId, title, description, status (open/in_progress/review/done), priority (low/medium/high/critical), assigneeId, createdBy, tags, dueDate, completedAt
 - **AuditLog:** orgId, userId, action, resource, resourceId, changes, ipAddress
+- **Notification:** orgId, recipientId, type (task_assigned/task_status_changed), title, message, taskId, triggeredBy, read, readAt — Added by Dev B
 
 ---
 
@@ -187,3 +206,4 @@ frontend/
 | Version | Developer | Action | Date |
 |---------|-----------|--------|------|
 | G1 | Dev A (Devin) | Genesis — created full app | 2026-02-15 |
+| G2 | Dev B (Devin) | Added notification system — model, API routes, bell icon with unread count dropdown, notification preferences page | 2026-02-15 |

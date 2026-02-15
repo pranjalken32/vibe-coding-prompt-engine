@@ -3,6 +3,7 @@ const Task = require('../models/Task');
 const { authMiddleware } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/rbac');
 const { logAudit } = require('../utils/auditHelper');
+const { createNotification } = require('../utils/notificationHelper');
 
 const router = express.Router();
 
@@ -83,6 +84,18 @@ router.post('/', checkPermission('create', 'tasks'), async (req, res) => {
       ipAddress: req.ip,
     });
 
+    if (assigneeId) {
+      await createNotification({
+        orgId,
+        recipientId: assigneeId,
+        type: 'task_assigned',
+        title: 'New Task Assigned',
+        message: `You have been assigned to task "${title}"`,
+        taskId: task._id,
+        triggeredBy: userId,
+      });
+    }
+
     res.status(201).json({ success: true, data: task, error: null });
   } catch (err) {
     res.status(500).json({ success: false, data: null, error: err.message });
@@ -99,7 +112,7 @@ router.put('/:id', checkPermission('update', 'tasks'), async (req, res) => {
       return res.status(404).json({ success: false, data: null, error: 'Task not found' });
     }
 
-    const oldValues = { status: task.status, priority: task.priority, title: task.title };
+    const oldValues = { status: task.status, priority: task.priority, title: task.title, assigneeId: task.assigneeId };
 
     if (updates.status === 'done' && task.status !== 'done') {
       updates.completedAt = new Date();
@@ -117,6 +130,30 @@ router.put('/:id', checkPermission('update', 'tasks'), async (req, res) => {
       changes: { before: oldValues, after: updates },
       ipAddress: req.ip,
     });
+
+    if (updates.assigneeId && String(updates.assigneeId) !== String(oldValues.assigneeId)) {
+      await createNotification({
+        orgId,
+        recipientId: updates.assigneeId,
+        type: 'task_assigned',
+        title: 'New Task Assigned',
+        message: `You have been assigned to task "${task.title}"`,
+        taskId: task._id,
+        triggeredBy: userId,
+      });
+    }
+
+    if (updates.status && updates.status !== oldValues.status && task.createdBy) {
+      await createNotification({
+        orgId,
+        recipientId: task.createdBy,
+        type: 'task_status_changed',
+        title: 'Task Status Updated',
+        message: `Task "${task.title}" status changed from "${oldValues.status}" to "${updates.status}"`,
+        taskId: task._id,
+        triggeredBy: userId,
+      });
+    }
 
     res.json({ success: true, data: task, error: null });
   } catch (err) {
