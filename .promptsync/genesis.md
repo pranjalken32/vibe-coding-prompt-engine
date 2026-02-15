@@ -1,7 +1,7 @@
 # Genesis Prompt G1 — Enterprise Task Management Platform (ETMP)
 
-**Version:** G2 (Dev B — Notifications)
-**Last Updated By:** Dev B (Devin)
+**Version:** G3 (Dev C — Security & Priority UI)
+**Last Updated By:** Dev C (GitHub Copilot)
 **Date:** 2026-02-15
 
 ---
@@ -148,7 +148,7 @@ frontend/
 ## Existing Features (Dev A)
 
 ### Authentication (backend/routes/auth.js)
-- POST `/api/v1/auth/register` — Register user + create org (bcrypt 10 rounds)
+- POST `/api/v1/auth/register` — Register user + create org (bcrypt 12 rounds)
 - POST `/api/v1/auth/login` — Login, returns JWT token
 
 ### Tasks (backend/routes/tasks.js)
@@ -192,6 +192,10 @@ frontend/
 - **NotificationBell** (`frontend/src/components/NotificationBell.jsx`) — Bell icon in header with unread count badge, dropdown showing recent notifications, mark as read / mark all read. Polls unread count every 30 seconds. Closes on outside click.
 - **NotificationPreferences** (`frontend/src/pages/NotificationPreferences.jsx`) — Toggle page for email and in-app notification preferences with toggle switches. Saves immediately on toggle.
 
+### Security & Priority UI (Dev C)
+- Increased bcrypt hashing rounds to 12 during user registration for stronger password hashing.
+- Task cards display priority as capitalized, color-coded badges (Low green, Medium blue, High orange, Critical red).
+
 ### Data Models
 - **Organization:** name, slug, plan, settings
 - **User:** orgId, name, email, passwordHash, role, notificationPrefs, lastLoginAt
@@ -207,3 +211,4 @@ frontend/
 |---------|-----------|--------|------|
 | G1 | Dev A (Devin) | Genesis — created full app | 2026-02-15 |
 | G2 | Dev B (Devin) | Added notification system — model, API routes, bell icon with unread count dropdown, notification preferences page | 2026-02-15 |
+| G3 | Dev C (GitHub Copilot) | Strengthened password hashing (12 rounds) and added color-coded priority badges with capitalized labels | 2026-02-15 |

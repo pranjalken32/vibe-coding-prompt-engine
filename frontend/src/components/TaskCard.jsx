@@ -1,12 +1,12 @@
-const priorityColors = {
-  low: { bg: '#d1fae5', color: '#065f46' },
-  medium: { bg: '#dbeafe', color: '#1e40af' },
-  high: { bg: '#fed7aa', color: '#9a3412' },
-  critical: { bg: '#fecaca', color: '#991b1b' },
+const priorityStyles = {
+  low: { bg: '#d1fae5', color: '#065f46', label: 'Low' },
+  medium: { bg: '#dbeafe', color: '#1e40af', label: 'Medium' },
+  high: { bg: '#fed7aa', color: '#9a3412', label: 'High' },
+  critical: { bg: '#fecaca', color: '#991b1b', label: 'Critical' },
 };
 
 export default function TaskCard({ task, onEdit, onDelete, canEdit, canDelete }) {
-  const pColor = priorityColors[task.priority] || priorityColors.medium;
+  const priority = priorityStyles[task.priority] || priorityStyles.medium;
 
   return (
     <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -14,7 +14,7 @@ export default function TaskCard({ task, onEdit, onDelete, canEdit, canDelete })
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
           <h3 style={{ fontSize: '16px', fontWeight: 600 }}>{task.title}</h3>
           <span className={`badge ${task.status}`}>{task.status}</span>
-          <span className="badge" style={{ background: pColor.bg, color: pColor.color }}>{task.priority}</span>
+          <span className="badge" style={{ background: priority.bg, color: priority.color }}>{priority.label}</span>
         </div>
         {task.description && (
           <p style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>{task.description}</p>
