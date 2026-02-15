@@ -6,6 +6,7 @@ const ROLE_PERMISSIONS = {
     dashboard: ['read'],
     organization: ['read', 'update'],
     notifications: ['read', 'update'],
+    reports: ['read'],
   },
   manager: {
     tasks: ['create', 'read', 'update', 'assign'],
@@ -13,12 +14,14 @@ const ROLE_PERMISSIONS = {
     auditLogs: ['read'],
     dashboard: ['read'],
     notifications: ['read', 'update'],
+    reports: ['read'],
   },
   member: {
     tasks: ['create', 'read', 'update'],
     users: ['read'],
     dashboard: ['read'],
     notifications: ['read', 'update'],
+    reports: ['read'],
   },
 };
 

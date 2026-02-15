@@ -38,11 +38,11 @@ const item = await Model.findById(req.params.id);
 
 Three roles exist: `admin`, `manager`, `member`. The permission matrix is in `backend/utils/permissions.js`:
 
-| Role | Tasks | Users | Audit Logs | Dashboard | Organization | Notifications |
-|------|-------|-------|-----------|-----------|-------------|---------------|
-| admin | create, read, update, delete, assign | create, read, update, delete, changeRole | read | read | read, update | read, update |
-| manager | create, read, update, assign | read | read | read | — | read, update |
-| member | create, read, update | read | — | read | — | read, update |
+| Role | Tasks | Users | Audit Logs | Dashboard | Organization | Notifications | Reports |
+|------|-------|-------|-----------|-----------|-------------|---------------|---------|
+| admin | create, read, update, delete, assign | create, read, update, delete, changeRole | read | read | read, update | read, update | read |
+| manager | create, read, update, assign | read | read | read | — | read, update | read |
+| member | create, read, update | read | — | read | — | read, update | read |
 
 Every protected route MUST use:
 1. `authMiddleware` — verifies JWT token, attaches `req.user` (from `backend/middleware/auth.js`)
@@ -152,7 +152,7 @@ frontend/
 - POST `/api/v1/auth/login` — Login, returns JWT token
 
 ### Tasks (backend/routes/tasks.js)
-- GET `/api/v1/orgs/:orgId/tasks` — List tasks (paginated, orgId-filtered)
+- GET `/api/v1/orgs/:orgId/tasks` — List tasks (paginated, orgId-filtered, supports `?search=query` for title/description search, `?status`, `?priority`, `?assigneeId` filters)
 - POST `/api/v1/orgs/:orgId/tasks` — Create task (audit logged)
 - PUT `/api/v1/orgs/:orgId/tasks/:id` — Update task (audit logged)
 - DELETE `/api/v1/orgs/:orgId/tasks/:id` — Delete task (audit logged)
@@ -181,11 +181,32 @@ frontend/
 - When a task's status changes, a `task_status_changed` notification is sent to the task creator
 - Notifications are NOT sent when the triggering user is the same as the recipient (no self-notifications)
 
-### Frontend Pages
-- Login, Register, Dashboard, Tasks (with TaskCard + TaskForm), AuditLogs, NotificationPreferences
-- Header with navigation links and NotificationBell component
+### Reports (backend/routes/reports.js) — Added by Dev D
+- GET `/api/v1/orgs/:orgId/reports/task-distribution` — Task couReports, AuditLogs, NotificationPreferences
+- Header with navigation links (Dashboard, Tasks, Reports, Audit Logs, Preferences) and NotificationBell component
 - ProtectedRoute component for auth guards
 - AuthContext for state management
+- api.js utility with auth headers and base URL
+
+### Frontend Components — Added by Dev B
+- **NotificationBell** (`frontend/src/components/NotificationBell.jsx`) — Bell icon in header with unread count badge, dropdown showing recent notifications, mark as read / mark all read. Polls unread count every 30 seconds. Closes on outside click.
+- **NotificationPreferences** (`frontend/src/pages/NotificationPreferences.jsx`) — Toggle page for email and in-app notification preferences with toggle switches. Saves immediately on toggle.
+
+### Search and Filtering (Tasks Page) — Added by Dev D
+- **Search bar** — Full-text search across task title and description fields (case-insensitive, real-time)
+- **Status filter** — Dropdown to filter by Open, In Progress, Review, Done
+- **Priority filter** — Dropdown to filter by Low, Medium, High, Critical  
+- **Assignee filter** — Dropdown to filter by team member (populated from users list)
+- **Clear Filters** — Button to reset all filters at once
+- All filters work together and update the task list in real time (debounced by React state)
+
+### Reports Module — Added by Dev D
+- **Reports page** (`frontend/src/pages/Reports.jsx`) — Accessible via "Reports" link in navigation (all roles can access)
+- **Task Distribution by Status** — Bar chart showing count of tasks in each status (Open, In Progress, Review, Done)
+- **Task Distribution by Priority** — Pie chart showing count of tasks by priority level (Low, Medium, High, Critical) with color-coded legend
+- **Tasks Completed Over Time** — Line chart showing daily task completion trend over last 30 days
+- **Team Workload View** — Table showing each assignee's task breakdown (Total, Open, In Progress, Review, Done)
+- Charts are rendered using HTML5 Canvas (no external charting library dependencies)
 - api.js utility with auth headers and base URL
 
 ### Frontend Components — Added by Dev B
@@ -196,6 +217,7 @@ frontend/
 - Increased bcrypt hashing rounds to 12 during user registration for stronger password hashing.
 - Task cards display priority as capitalized, color-coded badges (Low green, Medium blue, High orange, Critical red).
 
+| G4 | Dev D (Windsurf) | Added reports module with charts (task distribution, completion over time, team workload) and search/filtering on tasks page (search bar + status/priority/assignee filters) | 2026-02-15 |
 ### Data Models
 - **Organization:** name, slug, plan, settings
 - **User:** orgId, name, email, passwordHash, role, notificationPrefs, lastLoginAt

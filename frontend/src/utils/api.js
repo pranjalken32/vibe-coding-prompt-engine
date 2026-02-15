@@ -45,4 +45,8 @@ export const api = {
   markAllNotificationsRead: () => request('PUT', `/orgs/${getOrgId()}/notifications/mark-all-read`),
   getNotificationPreferences: () => request('GET', `/orgs/${getOrgId()}/notifications/preferences`),
   updateNotificationPreferences: (body) => request('PUT', `/orgs/${getOrgId()}/notifications/preferences`, body),
+
+  getTaskDistribution: () => request('GET', `/orgs/${getOrgId()}/reports/task-distribution`),
+  getTasksOverTime: (days = 30) => request('GET', `/orgs/${getOrgId()}/reports/tasks-over-time?days=${days}`),
+  getTeamWorkload: () => request('GET', `/orgs/${getOrgId()}/reports/team-workload`),
 };

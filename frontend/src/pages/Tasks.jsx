@@ -11,6 +11,12 @@ export default function Tasks() {
   const [showForm, setShowForm] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [error, setError] = useState('');
+  
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('');
+  const [assigneeFilter, setAssigneeFilter] = useState('');
 
   const canEdit = ['admin', 'manager', 'member'].includes(user?.role);
   const canDelete = user?.role === 'admin';
@@ -19,11 +25,18 @@ export default function Tasks() {
   useEffect(() => {
     loadTasks();
     api.getUsers().then(res => setUsers(res.data)).catch(() => {});
-  }, []);
+  }, [searchQuery, statusFilter, priorityFilter, assigneeFilter]);
 
   async function loadTasks() {
     try {
-      const res = await api.getTasks();
+      const params = new URLSearchParams();
+      if (searchQuery) params.append('search', searchQuery);
+      if (statusFilter) params.append('status', statusFilter);
+      if (priorityFilter) params.append('priority', priorityFilter);
+      if (assigneeFilter) params.append('assigneeId', assigneeFilter);
+      
+      const queryString = params.toString() ? `?${params.toString()}` : '';
+      const res = await api.getTasks(queryString);
       setTasks(res.data);
     } catch (err) {
       setError(err.message);
@@ -71,6 +84,104 @@ export default function Tasks() {
         )}
       </div>
       {error && <div className="error-msg">{error}</div>}
+      
+      {/* Search and Filters */}
+      <div style={{ marginBottom: '24px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <input
+          type="text"
+          placeholder="Search tasks by title or description..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{
+            flex: '1 1 300px',
+            padding: '8px 12px',
+            background: '#1f2937',
+            border: '1px solid #374151',
+            borderRadius: '6px',
+            color: '#f3f4f6',
+            fontSize: '14px',
+          }}
+        />
+        
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          style={{
+            padding: '8px 12px',
+            background: '#1f2937',
+            border: '1px solid #374151',
+            borderRadius: '6px',
+            color: '#f3f4f6',
+            fontSize: '14px',
+          }}
+        >
+          <option value="">All Status</option>
+          <option value="open">Open</option>
+          <option value="in_progress">In Progress</option>
+          <option value="review">Review</option>
+          <option value="done">Done</option>
+        </select>
+        
+        <select
+          value={priorityFilter}
+          onChange={(e) => setPriorityFilter(e.target.value)}
+          style={{
+            padding: '8px 12px',
+            background: '#1f2937',
+            border: '1px solid #374151',
+            borderRadius: '6px',
+            color: '#f3f4f6',
+            fontSize: '14px',
+          }}
+        >
+          <option value="">All Priority</option>
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+          <option value="critical">Critical</option>
+        </select>
+        
+        <select
+          value={assigneeFilter}
+          onChange={(e) => setAssigneeFilter(e.target.value)}
+          style={{
+            padding: '8px 12px',
+            background: '#1f2937',
+            border: '1px solid #374151',
+            borderRadius: '6px',
+            color: '#f3f4f6',
+            fontSize: '14px',
+          }}
+        >
+          <option value="">All Assignees</option>
+          {users.map(u => (
+            <option key={u._id} value={u._id}>{u.name}</option>
+          ))}
+        </select>
+        
+        {(searchQuery || statusFilter || priorityFilter || assigneeFilter) && (
+          <button
+            onClick={() => {
+              setSearchQuery('');
+              setStatusFilter('');
+              setPriorityFilter('');
+              setAssigneeFilter('');
+            }}
+            style={{
+              padding: '8px 16px',
+              background: '#374151',
+              border: 'none',
+              borderRadius: '6px',
+              color: '#9ca3af',
+              fontSize: '14px',
+              cursor: 'pointer',
+            }}
+          >
+            Clear Filters
+          </button>
+        )}
+      </div>
+      
       {showForm && (
         <TaskForm
           task={editingTask}
@@ -80,7 +191,7 @@ export default function Tasks() {
         />
       )}
       {tasks.length === 0 ? (
-        <p style={{ color: '#9ca3af' }}>No tasks yet.</p>
+        <p style={{ color: '#9ca3af' }}>No tasks found.</p>
       ) : (
         tasks.map(task => (
           <TaskCard
