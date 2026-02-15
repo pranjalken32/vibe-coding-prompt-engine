@@ -1,7 +1,7 @@
 # Genesis Prompt G1 — Enterprise Task Management Platform (ETMP)
 
-**Version:** G3 (Dev C — Security & Priority UI)
-**Last Updated By:** Dev C (GitHub Copilot)
+**Version:** G5 (Dev E — Comments & Activity Timeline)
+**Last Updated By:** Dev E (Lovable)
 **Date:** 2026-02-15
 
 ---
@@ -217,13 +217,18 @@ frontend/
 - Increased bcrypt hashing rounds to 12 during user registration for stronger password hashing.
 - Task cards display priority as capitalized, color-coded badges (Low green, Medium blue, High orange, Critical red).
 
-| G4 | Dev D (Windsurf) | Added reports module with charts (task distribution, completion over time, team workload) and search/filtering on tasks page (search bar + status/priority/assignee filters) | 2026-02-15 |
+### Comments & Activity Timeline (Dev E)
+- Users can add comments to any task they can view.
+- Added a Task Detail page with task info at the top and an Activity timeline below.
+- Activity timeline shows chronological events including status changes, assignee changes, and comments, with actor and timestamp.
+
 ### Data Models
 - **Organization:** name, slug, plan, settings
 - **User:** orgId, name, email, passwordHash, role, notificationPrefs, lastLoginAt
 - **Task:** orgId, title, description, status (open/in_progress/review/done), priority (low/medium/high/critical), assigneeId, createdBy, tags, dueDate, completedAt
 - **AuditLog:** orgId, userId, action, resource, resourceId, changes, ipAddress
 - **Notification:** orgId, recipientId, type (task_assigned/task_status_changed), title, message, taskId, triggeredBy, read, readAt — Added by Dev B
+- **TaskComment:** orgId, taskId, userId, body, timestamps — Added by Dev E
 
 ---
 
@@ -234,3 +239,5 @@ frontend/
 | G1 | Dev A (Devin) | Genesis — created full app | 2026-02-15 |
 | G2 | Dev B (Devin) | Added notification system — model, API routes, bell icon with unread count dropdown, notification preferences page | 2026-02-15 |
 | G3 | Dev C (GitHub Copilot) | Strengthened password hashing (12 rounds) and added color-coded priority badges with capitalized labels | 2026-02-15 |
+| G4 | Dev D (Windsurf) | Added reports module with charts (task distribution, completion over time, team workload) and search/filtering on tasks page (search bar + status/priority/assignee filters) | 2026-02-15 |
+| G5 | Dev E (GitHub Copilot) | Added task comments and unified activity timeline; introduced Task Detail page | 2026-02-15 |

@@ -1,5 +1,7 @@
 const express = require('express');
 const Task = require('../models/Task');
+const TaskComment = require('../models/TaskComment');
+const AuditLog = require('../models/AuditLog');
 const { authMiddleware } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/rbac');
 const { logAudit } = require('../utils/auditHelper');
@@ -8,6 +10,39 @@ const { createNotification } = require('../utils/notificationHelper');
 const router = express.Router();
 
 router.use(authMiddleware);
+
+// Enforce that URL orgId matches the authenticated user's orgId
+router.use((req, res, next) => {
+  if (req.params.orgId && req.user?.orgId && String(req.params.orgId) !== String(req.user.orgId)) {
+    return res.status(403).json({ success: false, data: null, error: 'Forbidden' });
+  }
+  next();
+});
+
+function formatUser(userDoc) {
+  if (!userDoc) return null;
+  return { id: userDoc._id, name: userDoc.name, email: userDoc.email };
+}
+
+function toActivityItem({ type, at, actor, message, meta }) {
+  return {
+    type,
+    at,
+    actor,
+    message,
+    meta: meta || null,
+  };
+}
+
+function safeStatusLabel(status) {
+  const labels = {
+    open: 'Open',
+    in_progress: 'In Progress',
+    review: 'Review',
+    done: 'Done',
+  };
+  return labels[status] || status;
+}
 
 router.get('/', checkPermission('read', 'tasks'), async (req, res) => {
   try {
@@ -40,6 +75,184 @@ router.get('/', checkPermission('read', 'tasks'), async (req, res) => {
       error: null,
       meta: { page: Number(page), limit: Number(limit), total },
     });
+  } catch (err) {
+    res.status(500).json({ success: false, data: null, error: err.message });
+  }
+});
+
+// Unified activity timeline for a task: status changes, assignment changes, and comments
+router.get('/:id/activity', checkPermission('read', 'tasks'), async (req, res) => {
+  try {
+    const { orgId } = req.user;
+    const taskId = req.params.id;
+
+    const task = await Task.findOne({ _id: taskId, orgId });
+    if (!task) {
+      return res.status(404).json({ success: false, data: null, error: 'Task not found' });
+    }
+
+    const [auditLogs, comments] = await Promise.all([
+      AuditLog.find({ orgId, resource: 'task', resourceId: taskId })
+        .populate('userId', 'name email')
+        .sort({ timestamp: 1 }),
+      TaskComment.find({ orgId, taskId })
+        .populate('userId', 'name email')
+        .sort({ createdAt: 1 }),
+    ]);
+
+    const items = [];
+
+    for (const log of auditLogs) {
+      const actor = formatUser(log.userId);
+      const at = log.timestamp;
+
+      if (log.action === 'create') {
+        items.push(toActivityItem({
+          type: 'task_created',
+          at,
+          actor,
+          message: 'Created the task',
+          meta: { auditLogId: log._id },
+        }));
+        continue;
+      }
+
+      if (log.action === 'delete') {
+        items.push(toActivityItem({
+          type: 'task_deleted',
+          at,
+          actor,
+          message: 'Deleted the task',
+          meta: { auditLogId: log._id },
+        }));
+        continue;
+      }
+
+      if (log.action === 'update' && log.changes && log.changes.before && log.changes.after) {
+        const before = log.changes.before;
+        const after = log.changes.after;
+
+        let addedForLog = false;
+
+        const statusAfter = after.status;
+        if (statusAfter && statusAfter !== before.status) {
+          items.push(toActivityItem({
+            type: 'status_changed',
+            at,
+            actor,
+            message: `Changed status from "${safeStatusLabel(before.status)}" to "${safeStatusLabel(statusAfter)}"`,
+            meta: { before: before.status, after: statusAfter, auditLogId: log._id },
+          }));
+          addedForLog = true;
+        }
+
+        const assigneeAfter = after.assigneeId;
+        if (assigneeAfter && String(assigneeAfter) !== String(before.assigneeId || '')) {
+          items.push(toActivityItem({
+            type: 'assignee_changed',
+            at,
+            actor,
+            message: 'Changed the assignee',
+            meta: { before: before.assigneeId || null, after: assigneeAfter, auditLogId: log._id },
+          }));
+          addedForLog = true;
+        }
+
+        // Fallback if no specific activity was detected for this update
+        if (!addedForLog) {
+          items.push(toActivityItem({
+            type: 'task_updated',
+            at,
+            actor,
+            message: 'Updated the task',
+            meta: { auditLogId: log._id },
+          }));
+        }
+      } else {
+        items.push(toActivityItem({
+          type: 'task_activity',
+          at,
+          actor,
+          message: `${log.action} ${log.resource}`,
+          meta: { auditLogId: log._id },
+        }));
+      }
+    }
+
+    for (const c of comments) {
+      items.push(toActivityItem({
+        type: 'comment_added',
+        at: c.createdAt,
+        actor: formatUser(c.userId),
+        message: c.body,
+        meta: { commentId: c._id },
+      }));
+    }
+
+    items.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+
+    res.json({ success: true, data: items, error: null });
+  } catch (err) {
+    res.status(500).json({ success: false, data: null, error: err.message });
+  }
+});
+
+router.get('/:id/comments', checkPermission('read', 'tasks'), async (req, res) => {
+  try {
+    const { orgId } = req.user;
+    const taskId = req.params.id;
+
+    const task = await Task.findOne({ _id: taskId, orgId });
+    if (!task) {
+      return res.status(404).json({ success: false, data: null, error: 'Task not found' });
+    }
+
+    const comments = await TaskComment.find({ orgId, taskId })
+      .populate('userId', 'name email')
+      .sort({ createdAt: 1 });
+
+    res.json({ success: true, data: comments, error: null });
+  } catch (err) {
+    res.status(500).json({ success: false, data: null, error: err.message });
+  }
+});
+
+router.post('/:id/comments', checkPermission('read', 'tasks'), async (req, res) => {
+  try {
+    const { orgId, id: userId } = req.user;
+    const taskId = req.params.id;
+    const { body } = req.body;
+
+    if (!body || !String(body).trim()) {
+      return res.status(400).json({ success: false, data: null, error: 'Comment body is required' });
+    }
+
+    const task = await Task.findOne({ _id: taskId, orgId });
+    if (!task) {
+      return res.status(404).json({ success: false, data: null, error: 'Task not found' });
+    }
+
+    const comment = await TaskComment.create({
+      orgId,
+      taskId,
+      userId,
+      body: String(body).trim(),
+    });
+
+    await logAudit({
+      orgId,
+      userId,
+      action: 'create',
+      resource: 'task_comment',
+      resourceId: comment._id,
+      changes: { taskId, body: comment.body },
+      ipAddress: req.ip,
+    });
+
+    const populated = await TaskComment.findOne({ _id: comment._id, orgId })
+      .populate('userId', 'name email');
+
+    res.status(201).json({ success: true, data: populated, error: null });
   } catch (err) {
     res.status(500).json({ success: false, data: null, error: err.message });
   }

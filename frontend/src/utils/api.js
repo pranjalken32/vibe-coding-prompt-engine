@@ -30,6 +30,9 @@ export const api = {
 
   getTasks: (query = '') => request('GET', `/orgs/${getOrgId()}/tasks${query}`),
   getTask: (id) => request('GET', `/orgs/${getOrgId()}/tasks/${id}`),
+  getTaskActivity: (id) => request('GET', `/orgs/${getOrgId()}/tasks/${id}/activity`),
+  getTaskComments: (id) => request('GET', `/orgs/${getOrgId()}/tasks/${id}/comments`),
+  addTaskComment: (id, body) => request('POST', `/orgs/${getOrgId()}/tasks/${id}/comments`, body),
   createTask: (body) => request('POST', `/orgs/${getOrgId()}/tasks`, body),
   updateTask: (id, body) => request('PUT', `/orgs/${getOrgId()}/tasks/${id}`, body),
   deleteTask: (id) => request('DELETE', `/orgs/${getOrgId()}/tasks/${id}`),
